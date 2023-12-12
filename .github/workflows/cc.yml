@@ -1,27 +1,54 @@
-name: Free Windows 10 RDP
+name: Build and deploy RDP server with Getscreen
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
-  create_rdp:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
+      - name: Download Getscreen registration file
+        uses: actions/download-artifact@v3
+        with:
+          name: getscreen-registration-file
+          path: /tmp/getscreen-registration-file.json
 
-      - name: Download Getscreen workflow
-        run: wget -O workflow.zip https://github.com/Dionid/teleadmin/archive/refs/heads/main.zip
-
-      - name: Extract workflow
-        run: unzip workflow.zip
-
-      - name: Start Getscreen workflow
-        run: |
-          cd teleadmin-main
-          ./workflow.sh
+      - name: Build Windows 10 image
+        uses: azure/virtual-machines/win10-build@v1
+        with:
+          vm-name: rdp-server
+          vm-size: Standard_B1s
+          license-type: PAYG
+          customization-script: |
+            # Install Getscreen
+            curl https://api.getscreen.me/download/getscreen-agent-windows-amd64.msi > getscreen-agent-windows-amd64.msi
+            msiexec /i getscreen-agent-windows-amd64.msi /quiet /norestart
+            
+            # Install RDP Wrapper
+            curl https://github.com/stascorp/rdpwrap/releases/download/v1.6.3/rdpwrap-v1.6.3-win32-amd64.zip > rdpwrap-v1.6.3-win32-amd64.zip
+            unzip rdpwrap-v1.6.3-win32-amd64.zip
+            
+            # Configure RDP Wrapper
+            cat /tmp/getscreen-registration-file.json > rdpwrap.ini
+            echo "[server]" >> rdpwrap.ini
+            echo "port = 3389" >> rdpwrap.ini
+            echo "username = hellobb" >> rdpwrap.ini
+            echo "password = ROOT1232008" >> rdpwrap.ini
+            
+            # Start RDP Wrapper
+            cd rdpwrap-v1.6.3-win32-amd64
+            rdpwinst -u -k
+            
+            # Start ngrok tunnel
+            ngrok tcp 3389
+            
+      - name: Upload RDP connection information
+        uses: actions/upload-artifact@v3
+        with:
+          name: rdp-connection-info
+          path: |
+            - ngrok.log
+            - rdpwrap.ini
