@@ -1,0 +1,27 @@
+name: Free Windows 10 RDP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create_rdp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
+
+      - name: Download Getscreen workflow
+        run: wget -O workflow.zip https://github.com/Dionid/teleadmin/archive/refs/heads/main.zip
+
+      - name: Extract workflow
+        run: unzip workflow.zip
+
+      - name: Start Getscreen workflow
+        run: |
+          cd teleadmin-main
+          ./workflow.sh
