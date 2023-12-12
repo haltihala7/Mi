@@ -1,0 +1,36 @@
+name: Build and deploy RDP server with manual configuration
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Build Windows 10 image
+        uses: azure/virtual-machines/win10-build@v1
+        with:
+          vm-name: rdp-server
+          vm-size: Standard_B1s
+          license-type: PAYG
+          customization-script: |
+            # Enable RDP
+            mstsc /v /admin
+            
+            # Install RDP Wrapper
+            curl https://github.com/stascorp/rdpwrap/releases/download/v1.6.3/rdpwrap-v1.6.3-win32-amd64.zip > rdpwrap-v1.6.3-win32-amd64.zip
+            unzip rdpwrap-v1.6.3-win32-amd64.zip
+
+            # Configure RDP Wrapper (replace values with your own)
+            echo "[server]" > rdpwrap.ini
+            echo "port = 3389" >> rdpwrap.ini
+            echo "username = hellobb" >> rdpwrap.ini
+            echo "password = ROOT1232008" >> rdpwrap.ini
+
+            # Start RDP Wrapper
+            cd rdpwrap-v1.6.3-win32-amd64
+            rdpwinst -u -k
+
